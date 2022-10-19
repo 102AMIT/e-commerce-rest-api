@@ -3,6 +3,7 @@ const { default: mongoose } = require("mongoose");
 const app=express();
 const dotenv=require("dotenv");
 const router=require('./routes/user');
+const authRoute=require('./routes/auth');
 // here we are using dotenv so we need to write dotenv.config().
 dotenv.config();
 // we are using out secrate key of mongoDb
@@ -16,6 +17,7 @@ mongoose.connect(process.env.DB_URL)
 // we are using express.json() for taking input as json object
 app.use(express.json());
 
+app.use("/api/auth",authRoute)
 app.use("/api/user",router);
 
 

@@ -1,5 +1,6 @@
+// this is the short hand writting 
 const router=require('express').Router();
 
 
-// router.use('/register',require('./auth'));
+
 module.exports=router;
