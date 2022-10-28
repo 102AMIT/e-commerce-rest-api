@@ -4,6 +4,7 @@ const router=require('express').Router();
 const User=require("../models/User");
 const CryptoJS=require("crypto-js");
 const { json } = require('express');
+const jwt=require('jsonwebtoken');
 
 
 // Register
@@ -43,8 +44,11 @@ router.post("/register",async(req,res)=>{
 // Login
 router.post("/login",async(req,res)=> {
     try{
-
+        // if we want to specific data then we use lean method 
+        // const user=await User.findOne({username:req.body.username},{_id:0,email:1}).lean();
+        // if we console user then we get only email
         const user=await User.findOne({username:req.body.username});
+
 
         if(!user){
             return res.status(401).json("Wrong user input");
@@ -57,11 +61,23 @@ router.post("/login",async(req,res)=> {
         if(Originalpassword !=req.body.password){
             return res.status(401).json("Wrong user input");
         }
+
+        // after a user login successfully then i create a jsonwebtoken for that i need to implement here after login
+
+        const accessToken=jwt.sign({
+            id:user._id, 
+            isAdmin:user.isAdmin,
+        },
+        process.env.JWT_SEC,
+        {expiresIn:"3d"}
+        );
+
+
         // the hashedPassword is shown in db if we want to hide our password from db then we don't need to pass the password in db .for that we are using spread operator
-        // when we are passing the user then in db the password is sote in _doc so for that we need to pass user._doc
+        // when we are passing the user then in db the password is store in _doc so for that we need to pass user._doc
         const { password ,...others}=user._doc;
 
-        res.status(200).json(others);
+        res.status(200).json({...others , accessToken});
     }catch(err){
         res.status(500).json(err);
     }
