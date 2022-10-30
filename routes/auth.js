@@ -45,7 +45,7 @@ router.post("/register",async(req,res)=>{
 router.post("/login",async(req,res)=> {
     try{
         // if we want to specific data then we use lean method 
-        // const user=await User.findOne({username:req.body.username},{_id:0,email:1}).lean();
+        // const user=await User.findOne({username:req.body.username},{_id:0,email:1}).lean();//*******
         // if we console user then we get only email
         const user=await User.findOne({username:req.body.username});
 
