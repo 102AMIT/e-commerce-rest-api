@@ -2,8 +2,9 @@ const express=require("express");
 const { default: mongoose } = require("mongoose");
 const app=express();
 const dotenv=require("dotenv");
-const router=require('./routes/user');
+const userRoute=require('./routes/user');
 const authRoute=require('./routes/auth');
+const productRoute=require('./routes/products');
 // here we are using dotenv so we need to write dotenv.config().
 dotenv.config();
 // we are using out secrate key of mongoDb
@@ -18,7 +19,10 @@ mongoose.connect(process.env.DB_URL)
 app.use(express.json());
 
 app.use("/api/auth",authRoute)
-app.use("/api/user",router);
+app.use("/api/user",userRoute);
+app.use("/api/products",productRoute);
+
+
 
 
 
