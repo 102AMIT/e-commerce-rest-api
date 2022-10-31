@@ -21,102 +21,76 @@ router.post("/",verifyTokenAndAdmin, async(req,res)=>{
         }
 });
 
-// // here we are updating the user 
-// // now we are using middleware for verify my token 
-// router.put("/:id",verifyTokenAndAuthorization,async(req,res)=>{
-//     if(req.body.password){
-//         req.body.password=CryptoJS.AES.encrypt(
-//             req.body.password,
-//             process.env.PASS_SEC
-//         ).toString()
-//     }
+//  here we are updating the product
+// now we are using middleware for verify admin 
+router.put("/:id",verifyTokenAndAdmin,async(req,res)=>{
 
-//     try{
-//         const updatedUser=await User.findByIdAndUpdate(req.params.id,{
-//             $set:req.body
-//         },{new:true});
-//         res.status(200).json(updatedUser);
-//     }catch(err){
-//         res.status(500).json(err);
-//     }
-// });
+    try{
+        const updatedProduct=await Product.findByIdAndUpdate(
+            req.params.id,
+            {$set:req.body},
+            {new:true});
+            res.status(200).json(updatedProduct);
+    }catch(err){
+        res.status(500).json(err);
+    }
+});
 
 
 
-// // Delete user methode
+// Delete user methode
 
-// router.delete("/:id", verifyTokenAndAuthorization,async (req,res)=>{
-//     try{
-//         await User.findByIdAndDelete(req.params.id)
-//         res.status(200).json("User had been delete");
-//     }catch(err){
-//         res.status(500).json(err,"error in deleting");
-//     }
-// });
+router.delete("/:id", verifyTokenAndAdmin,async (req,res)=>{
+    try{
+        await Product.findByIdAndDelete(req.params.id)
+        res.status(200).json("Product has been deleted");
+    }catch(err){
+        res.status(500).json(err,"error in deleting Product");
+    }
+});
 
-// // Get user methode
+// // Get Product methode
 
-// router.get("/find/:id", verifyTokenAndAdmin,async (req,res)=>{
-//     try{
-//         const user=await User.findById(req.params.id)
-//         const { password ,...others}=user._doc;
-
-//         res.status(200).json(others);
-//     }catch(err){
-//         res.status(500).json(err,"error in Getting users");
-//     }
-// });
+router.get("/find/:id",async (req,res)=>{
+    try{
+        const product=await Product.findById(req.params.id)
+        res.status(200).json(product);
+    }catch(err){
+        res.status(500).json(err,"error in Getting product");
+    }
+});
 
 
-// // Get all users
+// Get all Product
 
 
-// router.get("/", verifyTokenAndAdmin,async (req,res)=>{
-//     // if we want to get recent 5 user then we need to pass query ?new=true for that we are using limit
-//     const query=req.query.new;
-//     try{
-//         const users=query? await User.find().sort({_id:-1}).limit(query): await User.find();
-//         res.status(200).json(users);
-//     }catch(err){
-//         res.status(500).json(err,"error in Getting users");
-//     }
-// });
+router.get("/",async (req,res)=>{
+    // if we want to get recent 5 user then we need to pass query ?new=true for that we are using limit
+    const qNew=req.query.new;
+    const qCategory=req.query.category;
+    try{
+        // we are creating array here ,here we can find the product's and also get the product by category
+        let products;
 
-// // Get user Stats
-// // this function give us total number of user like 10 user in january so we can get it by date 
-// router.get("/stats",verifyTokenAndAdmin,async(req,res)=>{
-//     const date=new Date();
-//     // it's return the last year today
-//     const lastYear=new Date(date.setFullYear(date.getFullYear()-1));
+        if(qNew){
+            products=await Product.find().sort({createdAt:-1}).limit(qNew);
+        }else if(qCategory){
+            // if here categories query inside the array then we fetch this from array 
+            products=await Product.find({categories:{
+                $in:[qCategory],
+            },
+        });
+        }else{
+            products=await Product.find();
+        }
+        res.status(200).json(products);
+    
 
-//     try{
-//         // here we are using mongo Db aggregate
-//         const data=await User.aggregate([
-//             // it's match the created date with current date 
-//             // created date it's getting from mongoDb current date is last year 
-//             {$match:{createdAt:{$gte:lastYear}}},
-//             {
-//                 $project:{
-//                     // month is assign from db
-//                     month:{$month:"$createdAt"},
-
-//                 },
-//             },
-//             {
-//                 $group:{
-//                     _id:"$month",
-//                     total:{$sum:1},
-//                 }
-//             }
-            
-//         ]);
-//         res.status(200).json(data);
-
-//     }catch(err){
-//         res.status(500).json(err);
-//     }
-// });
+    }catch(err){
+        res.status(500).json(err,"error in Getting users");
+    }
+});
 
 
-// router.use('/register',require('./auth'));
+
 module.exports=router;
