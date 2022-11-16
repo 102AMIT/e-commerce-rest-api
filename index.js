@@ -20,6 +20,7 @@ mongoose.connect(process.env.DB_URL)
 // we are using express.json() for taking input as json object
 app.use(express.json());
 
+
 app.use("/api/auth",authRoute)
 app.use("/api/user",userRoute);
 app.use("/api/products",productRoute);
