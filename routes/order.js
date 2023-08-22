@@ -1,4 +1,4 @@
-// this is the short hand writting
+const connection = require("../config/dbConnection");
 
 const {
   verifyToken,
@@ -10,24 +10,41 @@ const router = require("express").Router();
 
 // create a order
 
+// Here i'm not handling the quantity of the product because we are not going to update the quantity of the product in the product table
 router.post("/", verifyToken, async (req, res) => {
   const userId = req.body.userId;
-  const productData = JSON.stringify(req.body.product);
+  const products = req.body.products; // Array of product details
   const amount = req.body.amount;
   const address = JSON.stringify(req.body.address);
 
   try {
-    const insertQuery = `
-        INSERT INTO order_table (user_id, product, amount, address)
-        VALUES (?, ?, ?, ?)
-      `;
+    // Insert the order into the "Order" table
+    const insertOrderQuery = `
+      INSERT INTO \`orderTable\` (userId, amount, address)
+      VALUES (?, ?, ?)
+    `;
 
-    await connection.execute(insertQuery, [
+    const [result] = await connection.execute(insertOrderQuery, [
       userId,
-      productData,
       amount,
       address,
     ]);
+
+    const orderId = result.insertId; // Get the ID of the newly inserted order
+
+    // Insert each product into the "OrderProduct" table
+    for (const product of products) {
+      const insertProductQuery = `
+        INSERT INTO OrderProduct (orderId, productId, quantity)
+        VALUES (?, ?, ?)
+      `;
+
+      await connection.execute(insertProductQuery, [
+        orderId,
+        product.productId,
+        product.quantity,
+      ]);
+    }
 
     res.status(200).json({ message: "Order created successfully" });
   } catch (err) {
@@ -43,7 +60,7 @@ router.put("/:id", verifyTokenAndAdmin, async (req, res) => {
   const updatedData = req.body;
 
   try {
-    let updateQuery = "UPDATE order_table SET ";
+    let updateQuery = "UPDATE `orderTable` SET ";
     const values = [];
 
     for (const key in updatedData) {
@@ -72,8 +89,14 @@ router.delete("/:id", verifyTokenAndAdmin, async (req, res) => {
   const orderId = req.params.id;
 
   try {
-    const deleteQuery = "DELETE FROM order_table WHERE id = ?";
-    await connection.execute(deleteQuery, [orderId]);
+    // First, delete the associated records in the orderproduct table
+    const deleteOrderProductQuery =
+      "DELETE FROM orderproduct WHERE orderId = ?";
+    await connection.execute(deleteOrderProductQuery, [orderId]);
+
+    // Now, delete the order itself
+    const deleteOrderQuery = "DELETE FROM ordertable WHERE id = ?";
+    await connection.execute(deleteOrderQuery, [orderId]);
 
     res.status(200).json("Order has been deleted");
   } catch (err) {
@@ -88,7 +111,7 @@ router.get("/find/:userId", verifyTokenAndAuthorization, async (req, res) => {
   const userId = req.params.userId;
 
   try {
-    const selectQuery = "SELECT * FROM order_table WHERE user_id = ?";
+    const selectQuery = "SELECT * FROM orderTable WHERE userId = ?";
     const [rows] = await connection.execute(selectQuery, [userId]);
 
     res.status(200).json(rows);
@@ -102,7 +125,7 @@ router.get("/find/:userId", verifyTokenAndAuthorization, async (req, res) => {
 
 router.get("/", verifyTokenAndAdmin, async (req, res) => {
   try {
-    const selectQuery = "SELECT * FROM order_table";
+    const selectQuery = "SELECT * FROM orderTable";
     const [rows] = await connection.execute(selectQuery);
 
     res.status(200).json(rows);
@@ -129,18 +152,18 @@ router.get("/income", verifyTokenAndAdmin, async (req, res) => {
     // SQL query to calculate monthly income
     const selectQuery = `
         SELECT MONTH(created_at) AS month, SUM(amount) AS total
-        FROM order_table
+        FROM orderTable
         WHERE created_at >= ? AND created_at < ?
         GROUP BY month
       `;
 
     // Execute the query with date range parameters
-    const [rows] = await connection.execute(selectQuery, [
+    const [data] = await connection.execute(selectQuery, [
       previousMonthDate,
       lastMonthDate,
     ]);
 
-    res.status(200).json(rows);
+    res.status(200).json(data);
   } catch (err) {
     console.error("Error getting monthly income:", err);
     res.status(500).json(err);
