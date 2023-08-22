@@ -4,9 +4,9 @@ const connection=require("./config/dbConnection");
 const dotenv=require("dotenv");
 const authRoute=require('./routes/auth');
 const userRoute=require('./routes/user');
-// const productRoute=require('./routes/products');
-// const cartRoute=require('./routes/cart');
-// const orderRoute=require('./routes/order');
+const productRoute=require('./routes/products');
+const cartRoute=require('./routes/cart');
+const orderRoute=require('./routes/order');
 dotenv.config();
 
 
@@ -18,9 +18,9 @@ app.use(express.json());
 
 app.use("/api/auth",authRoute)
 app.use("/api/user",userRoute);
-// app.use("/api/products",productRoute);
-// app.use("/api/cart",cartRoute);
-// app.use("/api/order",orderRoute);
+app.use("/api/products",productRoute);
+app.use("/api/cart",cartRoute);
+app.use("/api/order",orderRoute);
 
 
 

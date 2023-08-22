@@ -35,7 +35,7 @@ router.put('/:id', verifyTokenAndAuthorization, async (req, res) => {
 
 
 
-// Delete user methode
+// Delete user method
 
 router.delete("/:id", verifyTokenAndAuthorization, async (req, res) => {
     try {
@@ -52,7 +52,7 @@ router.delete("/:id", verifyTokenAndAuthorization, async (req, res) => {
   });
   
 
-// Get user methode
+// Get user method
 // TODO : why here we are getting isAdmin Null need to check
 router.get("/find/:id", verifyTokenAndAdmin, async (req, res) => {
     try {

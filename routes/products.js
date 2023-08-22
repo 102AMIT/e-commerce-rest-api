@@ -1,96 +1,141 @@
-// this is the short hand writting 
+const connection = require("../config/dbConnection");
 
-const Product=require("../models/Product");
-const {verifyToken,verifyTokenAndAuthorization, verifyTokenAndAdmin} = require('./verifyToken');
+const {
+  verifyToken,
+  verifyTokenAndAuthorization,
+  verifyTokenAndAdmin,
+} = require("./verifyToken");
 
-const router=require('express').Router();
+const router = require("express").Router();
 
 // create
 
-router.post("/",verifyTokenAndAdmin, async(req,res)=>{
-    // console.log(req.body);
-    
-        try{
-            const newProduct= await new Product(req.body).save();
-            
-            // let newProduct=new Product(req.body);
-            // const savedProduct=await newProduct.save();
-            res.status(200).json(newProduct);
-        }catch(err){
-            res.status(500).json(err);
-        }
+router.post("/", verifyTokenAndAdmin, async (req, res) => {
+  const { title, description, img, size, color, price } = req.body;
+
+  try {
+    const insertQuery = `
+        INSERT INTO product (title, description, img, size, color, price)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `;
+
+    await connection.execute(insertQuery, [
+      title,
+      description,
+      img,
+      size,
+      color,
+      price,
+    ]);
+
+    res.status(200).json({ message: "Product created successfully" });
+  } catch (err) {
+    console.error("Error creating product:", err);
+    res.status(500).json(err);
+  }
 });
 
 //  here we are updating the product
-// now we are using middleware for verify admin 
-router.put("/:id",verifyTokenAndAdmin,async(req,res)=>{
+// now we are using middleware for verify admin
+router.put("/:id", verifyTokenAndAdmin, async (req, res) => {
+  const productId = req.params.id;
+  const updatedData = req.body;
 
-    try{
-        const updatedProduct=await Product.findByIdAndUpdate(
-            req.params.id,
-            {$set:req.body},
-            {new:true});
-            res.status(200).json(updatedProduct);
-    }catch(err){
-        res.status(500).json(err);
+  try {
+    let updateQuery = "UPDATE product SET ";
+    const values = [];
+
+    for (const key in updatedData) {
+      if (updatedData.hasOwnProperty(key)) {
+        updateQuery += `${key} = ?, `;
+        values.push(updatedData[key]);
+      }
     }
+    // we need to do this because when we have to update more than one column(fields) then we have to use comma(,) after every column except the last one -2 remove the last comma and space
+    updateQuery = updateQuery.slice(0, -2); // Remove the trailing comma and space
+    updateQuery += " WHERE id = ?";
+    values.push(productId);
+
+    res.status(200).json({ message: "Product updated successfully" });
+  } catch (err) {
+    console.error("Error updating product:", err);
+    res.status(500).json(err);
+  }
 });
 
+// Delete user method
 
+router.delete("/:id", verifyTokenAndAdmin, async (req, res) => {
+  const productId = req.params.id;
 
-// Delete user methode
+  try {
+    const deleteQuery = "DELETE FROM product WHERE id = ?";
+    await connection.execute(deleteQuery, [productId]);
 
-router.delete("/:id", verifyTokenAndAdmin,async (req,res)=>{
-    try{
-        await Product.findByIdAndDelete(req.params.id)
-        res.status(200).json("Product has been deleted");
-    }catch(err){
-        res.status(500).json(err,"error in deleting Product");
-    }
+    res.status(200).json("Product has been deleted");
+  } catch (err) {
+    console.error("Error deleting product:", err);
+    res.status(500).json("Error in deleting product");
+  }
 });
 
-// // Get Product methode
+// Get Product method
 
-router.get("/find/:id",async (req,res)=>{
-    try{
-        const product=await Product.findById(req.params.id)
-        res.status(200).json(product);
-    }catch(err){
-        res.status(500).json(err,"error in Getting product");
+router.get("/find/:id", async (req, res) => {
+  const productId = req.params.id;
+
+  try {
+    const selectQuery = "SELECT * FROM product WHERE id = ?";
+    const [data] = await connection.execute(selectQuery, [productId]);
+
+    if (data.length === 0) {
+      res.status(404).json("Product not found");
+      return;
     }
-});
 
+    const product = data[0];
+    res.status(200).json(product);
+  } catch (err) {
+    console.error("Error getting product:", err);
+    res.status(500).json("Error in getting product");
+  }
+});
 
 // Get all Product
 
+router.get("/", async (req, res) => {
+  const qNew = req.query.new;
 
-router.get("/",async (req,res)=>{
-    // if we want to get recent 5 user then we need to pass query ?new=true for that we are using limit
-    const qNew=req.query.new;
-    const qCategory=req.query.category;
-    try{
-        // we are creating array here ,here we can find the product's and also get the product by category
-        let products;
+  try {
+    // Initialize the base SELECT query
+    let selectQuery = `
+          SELECT *
+          FROM product
+      `;
 
-        if(qNew){
-            products=await Product.find().sort({createdAt:-1}).limit(qNew);
-        }else if(qCategory){
-            // if here categories query inside the array then we fetch this from array 
-            products=await Product.find({categories:{
-                $in:[qCategory],
-            },
-        });
-        }else{
-            products=await Product.find();
-        }
-        res.status(200).json(products);
-    
-
-    }catch(err){
-        res.status(500).json(err,"error in Getting users");
+    if (qNew) {
+      const newLimit = parseInt(qNew); // Parse qNew into an integer
+      if (!isNaN(newLimit)) {
+        selectQuery += `
+                  ORDER BY created_at DESC
+                  LIMIT ${newLimit}
+              `;
+      } else {
+        res.status(400).json("Invalid value for 'new' parameter");
+        return;
+      }
     }
+
+    // Execute the SQL query
+    const [data] = await connection.execute(selectQuery);
+
+    // Send the fetched products in the response
+    res.status(200).json(data);
+  } catch (err) {
+    // Handle errors that occur during the query
+    console.error("Error getting products:", err);
+    res.status(500).json("Error in getting products");
+  }
 });
 
-
-
-module.exports=router;
+module.exports = router;
