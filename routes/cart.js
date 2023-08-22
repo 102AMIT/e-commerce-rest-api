@@ -1,3 +1,4 @@
+const connection = require("../config/dbConnection");
 
 const {
   verifyToken,
@@ -11,14 +12,26 @@ const router = require("express").Router();
 
 router.post("/", verifyToken, async (req, res) => {
   const userId = req.body.userId;
+  const products = req.body.products;
 
   try {
-    const insertQuery = `
-        INSERT INTO cart (user_id)
-        VALUES (?)
-      `;
+    // Insert the cart into the Cart table
+    const insertCartQuery = "INSERT INTO Cart (userId) VALUES (?)";
+    const [insertedCart] = await connection.execute(insertCartQuery, [userId]);
 
-    await connection.execute(insertQuery, [userId]);
+    const cartId = insertedCart.insertId; // Get the generated cart ID
+
+    // Insert the products into the CartProduct table
+    for (const product of products) {
+      const { productId, quantity } = product;
+      const insertCartProductQuery =
+        "INSERT INTO CartProduct (cartId, productId, quantity) VALUES (?, ?, ?)";
+      await connection.execute(insertCartProductQuery, [
+        cartId,
+        productId,
+        quantity,
+      ]);
+    }
 
     res.status(200).json({ message: "Cart created successfully" });
   } catch (err) {
@@ -27,27 +40,36 @@ router.post("/", verifyToken, async (req, res) => {
   }
 });
 
-//  here we are updating the Cart
 // now we are using middleware for verify user
+// Update cart to add, remove, or modify products and quantities
 router.put("/:id", verifyTokenAndAuthorization, async (req, res) => {
   const cartId = req.params.id;
-  const updatedData = req.body;
+  const { action, productId, quantity } = req.body;
 
   try {
-    let updateQuery = "UPDATE cart SET ";
+    let updateQuery = "";
     const values = [];
 
-    for (const key in updatedData) {
-      if (updatedData.hasOwnProperty(key)) {
-        updateQuery += `${key} = ?, `;
-        values.push(updatedData[key]);
-      }
+    if (action === "add") {
+      // Add a product to the cart
+      updateQuery =
+        "INSERT INTO CartProduct (cartId, productId, quantity) VALUES (?, ?, ?)";
+      values.push(cartId, productId, quantity);
+    } else if (action === "remove") {
+      // Remove a product from the cart
+      updateQuery =
+        "DELETE FROM CartProduct WHERE cartId = ? AND productId = ?";
+      values.push(cartId, productId);
+    } else if (action === "updateQuantity") {
+      // Update the quantity of a product in the cart
+      updateQuery =
+        "UPDATE CartProduct SET quantity = ? WHERE cartId = ? AND productId = ?";
+      values.push(quantity, cartId, productId);
+    } else {
+      return res.status(400).json({ message: "Invalid action" });
     }
 
-    updateQuery = updateQuery.slice(0, -2); // Remove the trailing comma and space
-    updateQuery += " WHERE id = ?";
-    values.push(cartId);
-
+    // Execute the appropriate query
     await connection.execute(updateQuery, values);
 
     res.status(200).json({ message: "Cart updated successfully" });
@@ -63,8 +85,13 @@ router.delete("/:id", verifyTokenAndAuthorization, async (req, res) => {
   const cartId = req.params.id;
 
   try {
-    const deleteQuery = "DELETE FROM cart WHERE id = ?";
-    await connection.execute(deleteQuery, [cartId]);
+    // Delete related rows from CartProduct table first
+    const deleteCartProductQuery = "DELETE FROM CartProduct WHERE cartId = ?";
+    await connection.execute(deleteCartProductQuery, [cartId]);
+
+    // Now delete the cart from Cart table
+    const deleteCartQuery = "DELETE FROM Cart WHERE id = ?";
+    await connection.execute(deleteCartQuery, [cartId]);
 
     res.status(200).json("Cart has been deleted");
   } catch (err) {
@@ -79,7 +106,7 @@ router.get("/find/:userId", verifyTokenAndAuthorization, async (req, res) => {
   const userId = req.params.userId;
 
   try {
-    const selectQuery = "SELECT * FROM cart WHERE user_id = ?";
+    const selectQuery = "SELECT * FROM cart WHERE userId = ?";
     const [rows] = await connection.execute(selectQuery, [userId]);
 
     if (rows.length === 0) {
